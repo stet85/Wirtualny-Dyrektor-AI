@@ -44,15 +44,26 @@ df, prac, dzis, bledy = wczytaj(f1, f2, f3)
 for b in bledy:
     st.sidebar.error(b)
 m, d = sym.podsumowanie_miesieczne(df), sym.zysk_po_dzialach(df)
-dziala = llm.czy_dziala()
+try:
+    klucz_sekret = st.secrets.get("OPENROUTER_API_KEY", "")
+except Exception:
+    klucz_sekret = ""
+klucz_sekret = klucz_sekret or llm.klucz_ze_srodowiska()
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def sprawdz(k):
+    return llm.sprawdz_klucz(k)
+
 
 with st.sidebar:
     st.markdown("### 📊 Wirtualny Dyrektor")
     st.markdown("**MetalPol Sp. z o.o.**  \n*dane fikcyjne*")
     st.divider()
-    st.markdown("**Model AI (lokalny)**")
-    st.markdown(f"`{llm.MODEL}`")
-    st.markdown("🟢 Połączono z LM Studio" if dziala else "🔴 Brak połączenia z 127.0.0.1:1234")
+    st.markdown("**Model AI (OpenRouter)**")
+    klucz = st.text_input("Klucz API", type="password", placeholder="sk-or-... (lub w Secrets)") or klucz_sekret
+    model = st.text_input("Model", llm.MODEL_DOMYSLNY, help="ID z openrouter.ai/models, np. openai/gpt-4o-mini")
+    st.markdown("🟢 Klucz aktywny" if sprawdz(klucz) else ("🔴 Klucz nieprawidłowy lub brak internetu" if klucz else "🔴 Wpisz klucz API"))
     st.divider()
     if dzis:
         st.markdown(f"**Dane z dnia {dzis['data']}**")
@@ -63,7 +74,7 @@ with st.sidebar:
         st.caption("Brak pliku z danymi dnia (opcjonalny CSV powyżej).")
 
 st.markdown('<div class="hero"><h1>Wirtualny Dyrektor AI</h1>'
-            '<p>Analizy finansowe, symulacje decyzji i doradca AI działający lokalnie na Twoich danych</p></div>',
+            '<p>Analizy finansowe, symulacje decyzji i doradca AI oparty na Twoich danych</p></div>',
             unsafe_allow_html=True)
 t1, t2, t3, t4, t5 = st.tabs(["Dashboard", "Symulator decyzji", "Analizy AI", "Czat z dyrektorem", "O projekcie"])
 
@@ -126,7 +137,7 @@ with t3:
         with box:
             st.markdown(f"#### {nazwa}")
             with st.spinner("Model analizuje dane..."):
-                tekst = st.write_stream(llm.strumien(wiad_analiza(nazwa, df, prac, dzis, uwagi)))
+                tekst = st.write_stream(llm.strumien(wiad_analiza(nazwa, df, prac, dzis, uwagi), klucz, model))
         st.session_state["wynik"] = (nazwa, tekst)
     elif "wynik" in st.session_state:
         with box:
@@ -161,13 +172,13 @@ with t4:
             st.markdown(wiad)
         with st.chat_message("assistant"):
             with st.spinner("Myślę..."):
-                odp = st.write_stream(llm.strumien(wiad_czat(st.session_state.historia, df, prac, dzis)))
+                odp = st.write_stream(llm.strumien(wiad_czat(st.session_state.historia, df, prac, dzis), klucz, model))
         st.session_state.historia.append({"role": "assistant", "content": odp})
 
 with t5:
     st.markdown("""
-**Architektura:** liczby liczy kod Pythona (`symulator.py`), a model językowy działa lokalnie w LM Studio
-(`127.0.0.1:1234`) i interpretuje wyniki. Dane firmy nie opuszczają komputera.
+**Architektura:** liczby liczy kod Pythona (`symulator.py`), a model językowy działa przez OpenRouter (API)
+i interpretuje wyniki. Do modelu wysyłane są podsumowania finansowe i dane pracowników bez imion (pseudonimy P01, P02...).
 
 **Ryzyka i etyka:** jakość danych decyduje o jakości rekomendacji, ocena pracowników wymaga nadzoru człowieka
 (RODO, AI Act), a analiza konkurencji z modelu ogólnego wymaga weryfikacji na rynku. AI wspiera decyzje, nie zastępuje właściciela.
