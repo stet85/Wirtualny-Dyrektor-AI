@@ -1,9 +1,9 @@
 """Wirtualny Dyrektor AI. Uruchom: streamlit run app.py"""
 import streamlit as st
-from dane import generuj_dane, generuj_pracownikow, dane_dzisiejsze
+from dane import wczytaj
 import symulator as sym
 import llm
-from pytania_ai import ANALIZY, analiza, czat
+from pytania_ai import ANALIZY, wiad_analiza, wiad_czat, raport_csv, historia_csv
 
 st.set_page_config(page_title="Wirtualny Dyrektor AI", page_icon="📊", layout="wide")
 st.markdown("""
@@ -28,11 +28,22 @@ h2, h3 { color:#0B1F3A; font-weight:700; }
 [data-testid="stSidebar"] { background:#0B1F3A; }
 [data-testid="stSidebar"] * { color:#E2E8F0; }
 .stChatMessage { background:#fff; border:1px solid #E5E9F0; border-radius:14px; }
+[data-testid="stMetricLabel"] *, [data-testid="stMetricValue"] * { color:#000 !important; }
+.stChatMessage, .stChatMessage * { color:#000 !important; }
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] * { color:#0F172A !important; }
 </style>""", unsafe_allow_html=True)
 
-df, prac = generuj_dane(), generuj_pracownikow()
+with st.sidebar:
+    st.markdown("### 📁 Dane firmy (CSV)")
+    f1 = st.file_uploader("Przychody i koszty", type="csv", key="f1", help="kolumny: miesiac, dzial, przychody, koszty")
+    f2 = st.file_uploader("Pracownicy", type="csv", key="f2", help="kolumny: pracownik, dzial, koszt_mies, wydajnosc_proc")
+    f3 = st.file_uploader("Dane z dnia (opcjonalnie)", type="csv", key="f3",
+                          help="kolumny: data, przychody_dzis, koszty_dzis, zamowienia, reklamacje, stan_konta, nieobecni_pracownicy")
+    st.caption("Bez plików używane są dane przykładowe z pliku dane.py.")
+df, prac, dzis, bledy = wczytaj(f1, f2, f3)
+for b in bledy:
+    st.sidebar.error(b)
 m, d = sym.podsumowanie_miesieczne(df), sym.zysk_po_dzialach(df)
-dzis = dane_dzisiejsze()
 dziala = llm.czy_dziala()
 
 with st.sidebar:
@@ -43,10 +54,13 @@ with st.sidebar:
     st.markdown(f"`{llm.MODEL}`")
     st.markdown("🟢 Połączono z LM Studio" if dziala else "🔴 Brak połączenia z 127.0.0.1:1234")
     st.divider()
-    st.markdown(f"**Dane z dnia {dzis['data']}**")
-    st.metric("Przychody dziś", f"{dzis['przychody_dzis']:,} zł")
-    st.metric("Stan konta", f"{dzis['stan_konta']:,} zł")
-    st.caption(f"Zamówienia: {dzis['zamowienia']} · Reklamacje: {dzis['reklamacje']} · Nieobecni: {dzis['nieobecni_pracownicy']}")
+    if dzis:
+        st.markdown(f"**Dane z dnia {dzis['data']}**")
+        st.metric("Przychody dziś", f"{dzis['przychody_dzis']:,} zł")
+        st.metric("Stan konta", f"{dzis['stan_konta']:,} zł")
+        st.caption(f"Zamówienia: {dzis['zamowienia']} · Reklamacje: {dzis['reklamacje']} · Nieobecni: {dzis['nieobecni_pracownicy']}")
+    else:
+        st.caption("Brak pliku z danymi dnia (opcjonalny CSV powyżej).")
 
 st.markdown('<div class="hero"><h1>Wirtualny Dyrektor AI</h1>'
             '<p>Analizy finansowe, symulacje decyzji i doradca AI działający lokalnie na Twoich danych</p></div>',
@@ -55,9 +69,9 @@ t1, t2, t3, t4, t5 = st.tabs(["Dashboard", "Symulator decyzji", "Analizy AI", "C
 
 with t1:
     c = st.columns(4)
-    c[0].metric("Przychody (12 mies.)", f"{m.przychody.sum():,.0f} zł")
-    c[1].metric("Koszty (12 mies.)", f"{m.koszty.sum():,.0f} zł")
-    c[2].metric("Zysk (12 mies.)", f"{m.zysk.sum():,.0f} zł")
+    c[0].metric(f"Przychody ({len(m)} mies.)", f"{m.przychody.sum():,.0f} zł")
+    c[1].metric(f"Koszty ({len(m)} mies.)", f"{m.koszty.sum():,.0f} zł")
+    c[2].metric(f"Zysk ({len(m)} mies.)", f"{m.zysk.sum():,.0f} zł")
     c[3].metric("Marża", f"{m.zysk.sum() / m.przychody.sum():.1%}")
     st.write("")
     l, r = st.columns(2)
@@ -106,38 +120,48 @@ with t3:
     st.subheader("Analizy generowane przez AI")
     nazwa = st.selectbox("Rodzaj analizy", list(ANALIZY))
     uwagi = st.text_area("Dodatkowe informacje (opcjonalnie)", placeholder="np. główni konkurenci, budżet, cele na kwartał")
-    if st.button("Generuj analizę", type="primary"):
-        with st.spinner("Model analizuje dane..."):
-            st.session_state["wynik"] = (nazwa, analiza(nazwa, df, prac, uwagi))
+    generuj = st.button("Generuj analizę", type="primary")
+    box = st.container(border=True)
+    if generuj:
+        with box:
+            st.markdown(f"#### {nazwa}")
+            with st.spinner("Model analizuje dane..."):
+                tekst = st.write_stream(llm.strumien(wiad_analiza(nazwa, df, prac, dzis, uwagi)))
+        st.session_state["wynik"] = (nazwa, tekst)
+    elif "wynik" in st.session_state:
+        with box:
+            st.markdown(f"#### {st.session_state['wynik'][0]}")
+            st.markdown(st.session_state["wynik"][1])
     if "wynik" in st.session_state:
         n_, tekst = st.session_state["wynik"]
-        with st.container(border=True):
-            st.markdown(f"#### {n_}")
-            st.markdown(tekst)
-            st.download_button("Pobierz raport (.md)", tekst, file_name="raport.md")
+        b1, b2, _ = st.columns([1, 1, 3])
+        b1.download_button("Pobierz raport (.md)", tekst, file_name="raport.md")
+        b2.download_button("Pobierz raport (.csv)", raport_csv(n_, tekst), file_name="raport.csv", mime="text/csv")
 
 with t4:
     st.subheader("Rozmowa z wirtualnym dyrektorem")
     st.caption("Bot zna dane firmy i dzisiejszy odczyt (odświeżane przy każdej wiadomości) i pamięta historię rozmowy.")
     if "historia" not in st.session_state:
         st.session_state.historia = []
-    if st.button("Wyczyść historię"):
+    c1, c2, c3 = st.columns(3)
+    if c1.button("Wyczyść historię"):
         st.session_state.historia = []
-    if st.button("Poproś o poranną analizę dnia"):
-        st.session_state.historia.append({"role": "user", "content": "Przygotuj krótką poranną analizę na podstawie dzisiejszych danych i wskaż 3 priorytety na dziś."})
-        with st.spinner("Dyrektor analizuje..."):
-            st.session_state.historia.append({"role": "assistant", "content": czat(st.session_state.historia, df, prac)})
+    poranna = c2.button("Poranna analiza dnia")
+    if st.session_state.historia:
+        c3.download_button("Pobierz rozmowę (.csv)", historia_csv(st.session_state.historia), file_name="rozmowa.csv", mime="text/csv")
     for msg in st.session_state.historia:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
-    if wiad := st.chat_input("Napisz do dyrektora..."):
+    wiad = st.chat_input("Napisz do dyrektora...")
+    if poranna:
+        wiad = "Przygotuj krótką poranną analizę na podstawie dzisiejszych danych i wskaż 3 priorytety na dziś."
+    if wiad:
         st.session_state.historia.append({"role": "user", "content": wiad})
         with st.chat_message("user"):
             st.markdown(wiad)
         with st.chat_message("assistant"):
             with st.spinner("Myślę..."):
-                odp = czat(st.session_state.historia, df, prac)
-            st.markdown(odp)
+                odp = st.write_stream(llm.strumien(wiad_czat(st.session_state.historia, df, prac, dzis)))
         st.session_state.historia.append({"role": "assistant", "content": odp})
 
 with t5:

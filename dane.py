@@ -1,84 +1,49 @@
-"""OSOBA 2: dane fikcyjnej firmy MetalPol Sp. z o.o. Mozna zmieniac liczby."""
+"""OSOBA 2: dane przykładowe fikcyjnej firmy MetalPol + wczytywanie własnych plików CSV."""
+import io
 import numpy as np
 import pandas as pd
 
-MIESIACE = ["Lis", "Gru", "Sty", "Lut", "Mar", "Kwi", "Maj", "Cze", "Lip", "Sie", "Wrz", "Paź"]
+KOL_FIN = ["miesiac", "dzial", "przychody", "koszty"]
+KOL_PRAC = ["pracownik", "dzial", "koszt_mies", "wydajnosc_proc"]
+KOL_DZIS = ["data", "przychody_dzis", "koszty_dzis", "zamowienia", "reklamacje", "stan_konta", "nieobecni_pracownicy"]
+TEKSTOWE = ("miesiac", "dzial", "pracownik", "data")
 
 # dzial: (miesieczne przychody, miesieczne koszty)
-DZIALY = {"Produkcja": (95000, 78000), "Sprzedaż": (70000, 48000), "Serwis": (25000, 34000)}
+DZIALY = {"Produkcja": (95000, 78000), "Sprzedaż": (70000, 48000), "Serwis": (25000, 34000),
+          "Logistyka": (22000, 26000), "Marketing": (36000, 27000)}
+LICZBA_PRACOWNIKOW = {"Produkcja": 10, "Sprzedaż": 6, "Serwis": 4, "Logistyka": 3, "Marketing": 2}
+IMIONA = ["Anna", "Piotr", "Marek", "Ewa", "Jan", "Kasia", "Tomek", "Ola", "Adam", "Marta", "Paweł", "Iga",
+          "Michał", "Zofia", "Krzysztof", "Agnieszka", "Łukasz", "Natalia", "Rafał", "Dorota", "Bartek",
+          "Magda", "Kamil", "Julia", "Robert"]
+
+
+def _miesiace(n=24):
+    koniec = pd.Timestamp.today().to_period("M") - 1
+    return [str(p) for p in pd.period_range(end=koniec, periods=n, freq="M")]
 
 
 def generuj_dane(seed=42):
     rng = np.random.default_rng(seed)
+    mies = _miesiace()
     wiersze = []
-    for i, m in enumerate(MIESIACE):
-        sezon = 1 + 0.08 * np.sin(i / 12 * 2 * np.pi) + 0.01 * i
+    for i, m in enumerate(mies):
+        sezon = 1 + 0.08 * np.sin(i / 12 * 2 * np.pi) + 0.008 * i
         for d, (p, k) in DZIALY.items():
-            wiersze.append({"miesiac": m, "dzial": d,
-                            "przychody": round(p * sezon * rng.normal(1, 0.04)),
-                            "koszty": round(k * rng.normal(1, 0.03))})
-    # celowy "niepotrzebny wydatek": skok kosztow w Serwisie w marcu
+            wiersze.append({"miesiac": m, "dzial": d, "przychody": int(round(p * sezon * rng.normal(1, 0.04))),
+                            "koszty": int(round(k * rng.normal(1, 0.03)))})
     df = pd.DataFrame(wiersze)
-    df.loc[(df.miesiac == "Mar") & (df.dzial == "Serwis"), "koszty"] += 12000
+    # celowe "niepotrzebne wydatki" do wykrycia
+    df.loc[(df.miesiac == mies[18]) & (df.dzial == "Serwis"), "koszty"] += 12000
+    df.loc[(df.miesiac == mies[9]) & (df.dzial == "Marketing"), "koszty"] += 9000
     return df
 
 
 def generuj_pracownikow():
-    imiona = ["Anna", "Piotr", "Marek", "Ewa", "Jan", "Kasia", "Tomek", "Ola", "Adam", "Marta",
-              "Paweł", "Iga", "Michał", "Zofia", "Krzysztof"]
-    dzialy = ["Produkcja"] * 7 + ["Sprzedaż"] * 5 + ["Serwis"] * 3
     rng = np.random.default_rng(7)
-    return pd.DataFrame({"pracownik": imiona, "dzial": dzialy,
-                         "koszt_mies": rng.integers(6500, 9500, 15),
-                         "wydajnosc_proc": rng.integers(60, 120, 15)})
-
-
-import pandas as pd
-
-KONKURENCI = pd.DataFrame([
-    {"firma": "MetalPol (my)", "cena_wyrobu": 1200, "udzial_rynku_proc": 12, "wzrost_proc": 6, "mocna_strona": "jakość, terminowość", "slaba_strona": "słaby marketing"},
-    {"firma": "StalTech", "cena_wyrobu": 1100, "udzial_rynku_proc": 25, "wzrost_proc": 3, "mocna_strona": "niska cena, skala", "slaba_strona": "obsługa klienta"},
-    {"firma": "ProMetal", "cena_wyrobu": 1350, "udzial_rynku_proc": 18, "wzrost_proc": 8, "mocna_strona": "marka, e-commerce", "slaba_strona": "wysoka cena"},
-    {"firma": "Kuźnia Południe", "cena_wyrobu": 1000, "udzial_rynku_proc": 9, "wzrost_proc": -2, "mocna_strona": "tradycja, lokalni klienci", "slaba_strona": "stare maszyny"},
-])
-
-
-def generuj_wydatki():
-    """Pozycje kosztow miesiecznych; wykorzystanie_proc < 30 = podejrzane jako niepotrzebne."""
-    dane = [("Materiały produkcyjne", 42000, 95), ("Energia", 9000, 90), ("Marketing online", 4000, 80),
-            ("Ubezpieczenia", 2500, 85), ("Szkolenia", 1500, 60),
-            ("Licencje CAD (5 stanowisk, używane 1)", 2400, 20),
-            ("Drugi system CRM (duplikat)", 1800, 10), ("Wynajem magazynu B", 5500, 20),
-            ("Reklama w prasie lokalnej", 3200, 25), ("Leasing auta (nieużywane)", 2100, 5)]
-    return pd.DataFrame(dane, columns=["pozycja", "kwota_mies", "wykorzystanie_proc"])
-
-
-from datetime import date, timedelta
-
-
-def generuj_dzienne(dni=30):
-    """Dane dzienne konczace sie DZISIAJ. Kazdy dzien ma wlasne ziarno, wiec 'dzisiejsze' dane sa nowe codziennie."""
-    wiersze = []
-    for i in range(dni):
-        d = date.today() - timedelta(days=dni - 1 - i)
-        rng = np.random.default_rng(d.toordinal())
-        waga = 0.3 if d.weekday() >= 5 else 1.0
-        p = round(6300 * waga * rng.normal(1, 0.08))
-        k = round(5300 * (0.6 if d.weekday() >= 5 else 1.0) * rng.normal(1, 0.06))
-        wiersze.append({"data": d, "przychody": p, "koszty": k, "zysk": p - k})
-    return pd.DataFrame(wiersze)
-
-
-KONKURENCI = pd.DataFrame([
-    {"firma": "MetalPol (my)", "udzial_proc": 14, "indeks_cen": 100, "ocena_klientow": 4.1,
-     "mocna": "jakość, serwis lokalny", "slaba": "słaby marketing online"},
-    {"firma": "StalTech", "udzial_proc": 22, "indeks_cen": 92, "ocena_klientow": 3.8,
-     "mocna": "niskie ceny, skala", "slaba": "długie terminy dostaw"},
-    {"firma": "ProMet", "udzial_proc": 17, "indeks_cen": 108, "ocena_klientow": 4.5,
-     "mocna": "marka premium, e-commerce", "slaba": "wysokie ceny"},
-    {"firma": "BudMetal", "udzial_proc": 9, "indeks_cen": 95, "ocena_klientow": 3.5,
-     "mocna": "elastyczność", "slaba": "niska jakość"},
-])
+    dzialy = [d for d, n in LICZBA_PRACOWNIKOW.items() for _ in range(n)]
+    return pd.DataFrame({"pracownik": IMIONA, "dzial": dzialy,
+                         "koszt_mies": rng.integers(6500, 9500, len(IMIONA)),
+                         "wydajnosc_proc": rng.integers(60, 120, len(IMIONA))})
 
 
 def dane_dzisiejsze():
@@ -86,8 +51,65 @@ def dane_dzisiejsze():
     from datetime import date
     dzis = date.today()
     rng = np.random.default_rng(int(dzis.strftime("%Y%m%d")))
-    przych = int(rng.normal(9500, 1500))
-    koszty = int(rng.normal(8200, 900))
-    return {"data": dzis.isoformat(), "przychody_dzis": przych, "koszty_dzis": koszty,
-            "zamowienia": int(rng.integers(18, 45)), "reklamacje": int(rng.integers(0, 5)),
-            "stan_konta": int(rng.normal(180000, 15000)), "nieobecni_pracownicy": int(rng.integers(0, 4))}
+    return {"data": dzis.isoformat(), "przychody_dzis": int(rng.normal(9500, 1500)),
+            "koszty_dzis": int(rng.normal(8200, 900)), "zamowienia": int(rng.integers(18, 45)),
+            "reklamacje": int(rng.integers(0, 5)), "stan_konta": int(rng.normal(180000, 15000)),
+            "nieobecni_pracownicy": int(rng.integers(0, 4)), "zapytania_ofertowe": int(rng.integers(2, 15)),
+            "faktury_po_terminie": int(rng.integers(0, 6))}
+
+
+# ---------- CSV ----------
+def _czytaj(plik, kolumny, nazwa):
+    surowe = plik.getvalue()
+    try:
+        tekst = surowe.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        tekst = surowe.decode("cp1250")
+    t = pd.read_csv(io.StringIO(tekst), sep=None, engine="python")
+    t.columns = [str(c).strip().lower() for c in t.columns]
+    brak = [c for c in kolumny if c not in t.columns]
+    if brak:
+        raise ValueError(f"Plik {nazwa}: brakuje kolumn {', '.join(brak)}. Wymagane: {', '.join(kolumny)}.")
+    t = t[kolumny].copy()
+    for c in kolumny:
+        if c in TEKSTOWE:
+            t[c] = t[c].astype(str).str.strip()
+        else:
+            t[c] = pd.to_numeric(t[c].astype(str).str.replace(" ", "").str.replace(",", "."), errors="coerce")
+    t = t.dropna()
+    if t.empty:
+        raise ValueError(f"Plik {nazwa} nie zawiera poprawnych wierszy.")
+    return t.reset_index(drop=True)
+
+
+def wczytaj(f1=None, f2=None, f3=None):
+    """Zwraca (finanse, pracownicy, dzis, bledy). Bez plikow: dane przykladowe z tego pliku.
+    dzis = dict z dziennym odczytem albo None (gdy wlasne finanse bez pliku z danymi dnia)."""
+    bledy, df, prac, dzis = [], None, None, None
+    if f1:
+        try:
+            df = _czytaj(f1, KOL_FIN, "finansowy")
+            if df.miesiac.nunique() < 3:
+                raise ValueError("Plik finansowy: potrzebne dane z co najmniej 3 miesięcy.")
+        except Exception as e:
+            bledy.append(f"{e} Używam danych przykładowych.")
+            df = None
+    wlasne = df is not None
+    if df is None:
+        df = generuj_dane()
+    if f2:
+        try:
+            prac = _czytaj(f2, KOL_PRAC, "pracowników")
+        except Exception as e:
+            bledy.append(str(e))
+    if prac is None:
+        prac = pd.DataFrame(columns=KOL_PRAC) if wlasne else generuj_pracownikow()
+    if f3:
+        try:
+            w = _czytaj(f3, KOL_DZIS, "danych z dnia").iloc[-1]
+            dzis = {k: (str(w[k]) if k in TEKSTOWE else int(w[k])) for k in KOL_DZIS}
+        except Exception as e:
+            bledy.append(str(e))
+    if dzis is None and not wlasne:
+        dzis = dane_dzisiejsze()
+    return df, prac, dzis, bledy
