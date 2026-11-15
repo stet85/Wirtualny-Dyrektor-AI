@@ -73,7 +73,7 @@ with st.sidebar:
     st.divider()
     st.markdown("**Model AI (OpenRouter)**")
     klucz = st.text_input("Klucz API", type="password", placeholder="sk-or-... (lub w Secrets)") or klucz_sekret
-    model = st.text_input("Model", llm.MODEL_DOMYSLNY, help="ID z openrouter.ai/models, np. openai/gpt-4o-mini")
+    model = st.text_input("Model", llm.MODEL_DOMYSLNY, help="ID z openrouter.ai/models, np. nvidia/nemotron-3.5-super-vl:free")
     st.markdown("🟢 Klucz aktywny" if sprawdz(klucz) else ("🔴 Klucz nieprawidłowy lub brak internetu" if klucz else "🔴 Wpisz klucz API"))
     st.divider()
     if dzis:

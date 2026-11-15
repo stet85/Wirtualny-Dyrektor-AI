@@ -9,8 +9,8 @@ KOL_DZIS = ["data", "przychody_dzis", "koszty_dzis", "zamowienia", "reklamacje",
 TEKSTOWE = ("miesiac", "dzial", "pracownik", "data")
 
 # dzial: (miesieczne przychody, miesieczne koszty)
-DZIALY = {"Produkcja": (95000, 78000), "Sprzedaż": (70000, 48000), "Serwis": (25000, 34000),
-          "Logistyka": (22000, 26000), "Marketing": (36000, 27000)}
+DZIALY = {"Produkcja": (90000, 73000), "Sprzedaż": (60000, 45000), "Serwis": (15000, 22000),
+          "Logistyka": (22000, 23000), "Marketing": (33000, 24000)}
 LICZBA_PRACOWNIKOW = {"Produkcja": 10, "Sprzedaż": 6, "Serwis": 4, "Logistyka": 3, "Marketing": 2}
 IMIONA = ["Anna", "Piotr", "Marek", "Ewa", "Jan", "Kasia", "Tomek", "Ola", "Adam", "Marta", "Paweł", "Iga",
           "Michał", "Zofia", "Krzysztof", "Agnieszka", "Łukasz", "Natalia", "Rafał", "Dorota", "Bartek",

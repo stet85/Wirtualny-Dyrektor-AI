@@ -5,7 +5,7 @@ import re
 import requests
 
 BAZA = "https://openrouter.ai/api/v1"
-MODEL_DOMYSLNY = "openai/gpt-4o-mini"  # dowolny model z openrouter.ai/models
+MODEL_DOMYSLNY = "nvidia/nemotron-3.5-super-vl:free"  # dowolny model z openrouter.ai/models
 BRAK_KLUCZA = "⚠️ Brak klucza API OpenRouter. Wpisz go w panelu bocznym (Model AI) lub ustaw w Secrets jako OPENROUTER_API_KEY."
 PUSTO = "⚠️ Model zwrócił pustą odpowiedź. Spróbuj ponownie lub wybierz inny model (najlepiej bez trybu rozumowania)."
 OPISY = {401: "Nieprawidłowy klucz API OpenRouter.",
