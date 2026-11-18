@@ -28,8 +28,8 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .hero p { margin:4px 0 0; opacity:.8; font-size:.95rem; }
 [data-testid="stMetric"] { background:#fff; border:1px solid #E5E9F0; border-radius:14px; padding:16px 18px;
         box-shadow:0 2px 8px rgba(15,23,42,.05); }
-[data-testid="stMetricLabel"] { color:#64748B; font-weight:500; }
-[data-testid="stMetricValue"] { color:#0B1F3A; font-weight:700; }
+[data-testid="stMetricLabel"] { color:#64748B; font-weight:300; }
+[data-testid="stMetricValue"] { color:#0B1F3A; font-weight:500; }
 .stTabs [data-baseweb="tab-list"] { gap:6px; border-bottom:1px solid #E5E9F0; }
 .stTabs [data-baseweb="tab"] { height:46px; padding:0 18px; border-radius:10px 10px 0 0; font-weight:600; color:#475569; }
 .stTabs [aria-selected="true"] { color:#0F766E; }
