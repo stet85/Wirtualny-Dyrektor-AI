@@ -44,10 +44,11 @@ h2, h3 { color:#0B1F3A; font-weight:700; }
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] * { color:#0F172A !important; }
 </style>""", unsafe_allow_html=True)
 
+gora = st.sidebar.container()  # wypelniane nizej, gdy znamy dane dnia; wyswietla sie na samej gorze
 with st.sidebar:
     st.markdown("### 📁 Dane firmy (CSV)")
     f1 = st.file_uploader("Przychody i koszty", type="csv", key="f1", help="kolumny: miesiac, dzial, przychody, koszty")
-    f2 = st.file_uploader("Pracownicy", type="csv", key="f2", help="kolumny: pracownik, dzial, koszt_mies, wydajnosc_proc")
+    f2 = st.file_uploader("Pracownicy", type="csv", key="f2", help="kolumny: pracownik, dzial, koszt_mies, wynik_pracy (wydajność liczona względem najlepszego = 100%)")
     f3 = st.file_uploader("Dane z dnia (opcjonalnie)", type="csv", key="f3",
                           help="kolumny: data, przychody_dzis, koszty_dzis, zamowienia, reklamacje, stan_konta, nieobecni_pracownicy")
     st.caption("Bez plików używane są dane przykładowe z pliku dane.py.")
@@ -75,14 +76,16 @@ with st.sidebar:
     klucz = st.text_input("Klucz API", type="password", placeholder="sk-or-... (lub w Secrets)") or klucz_sekret
     model = st.text_input("Model", llm.MODEL_DOMYSLNY, help="ID z openrouter.ai/models, np. openai/gpt-4o-mini")
     st.markdown("🟢 Klucz aktywny" if sprawdz(klucz) else ("🔴 Klucz nieprawidłowy lub brak internetu" if klucz else "🔴 Wpisz klucz API"))
-    st.divider()
+
+with gora:
     if dzis:
-        st.markdown(f"**Dane z dnia {dzis['data']}**")
-        st.metric("Przychody dziś", f"{dzis['przychody_dzis']:,} zł")
+        st.markdown(f"**📅 Dane z dnia {dzis['data']}**")
         st.metric("Stan konta", f"{dzis['stan_konta']:,} zł")
+        st.metric("Przychody dziś", f"{dzis['przychody_dzis']:,} zł")
         st.caption(f"Zamówienia: {dzis['zamowienia']} · Reklamacje: {dzis['reklamacje']} · Nieobecni: {dzis['nieobecni_pracownicy']}")
     else:
-        st.caption("Brak pliku z danymi dnia (opcjonalny CSV powyżej).")
+        st.caption("Brak danych z dnia (opcjonalny CSV niżej).")
+    st.divider()
 
 st.markdown('<div class="hero"><h1>Wirtualny Dyrektor AI</h1>'
             '<p>Analizy finansowe, symulacje decyzji i doradca AI oparty na Twoich danych</p></div>',
@@ -115,7 +118,10 @@ with t1:
     else:
         st.info("Brak anomalii.")
     st.subheader("Wydajność pracowników")
-    st.dataframe(prac.sort_values("wydajnosc_proc"), use_container_width=True, hide_index=True)
+    st.caption("Wydajność = wynik pracy ÷ najlepszy wynik w zespole × 100%. Najlepszy pracownik ma 100%.")
+    st.dataframe(prac.sort_values("wydajnosc_proc"), use_container_width=True, hide_index=True, column_config={
+        "wynik_pracy": "Wynik pracy",
+        "wydajnosc_proc": st.column_config.ProgressColumn("Wydajność", min_value=0, max_value=100, format="%.1f%%")})
 
 with t2:
     a, b = st.columns(2)
