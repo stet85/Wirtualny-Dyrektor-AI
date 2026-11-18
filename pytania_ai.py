@@ -26,7 +26,7 @@ def kontekst(df, prac, dzis=None):
     if len(prac):
         anon = prac.copy()  # RODO: do zewnetrznego API nie wysylamy imion (usun te 2 linie, by wysylac imiona)
         anon["pracownik"] = [f"P{i + 1:02d}" for i in range(len(anon))]
-        t += f"Pracownicy (pseudonimy, koszt/mies., wydajność %):\n{anon.to_string(index=False)}\n"
+        t += f"Pracownicy (pseudonimy, koszt/mies., wynik pracy, wydajność % względem najlepszego = 100%):\n{anon.to_string(index=False)}\n"
     if dzis:
         t += "DANE Z DNIA " + str(dzis.get("data", date.today())) + ": " + ", ".join(
             f"{k} {v:,}" if isinstance(v, int) else f"{k} {v}" for k, v in dzis.items() if k != "data")

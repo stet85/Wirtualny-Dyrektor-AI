@@ -4,13 +4,13 @@ import numpy as np
 import pandas as pd
 
 KOL_FIN = ["miesiac", "dzial", "przychody", "koszty"]
-KOL_PRAC = ["pracownik", "dzial", "koszt_mies", "wydajnosc_proc"]
+KOL_PRAC = ["pracownik", "dzial", "koszt_mies", "wynik_pracy"]
 KOL_DZIS = ["data", "przychody_dzis", "koszty_dzis", "zamowienia", "reklamacje", "stan_konta", "nieobecni_pracownicy"]
 TEKSTOWE = ("miesiac", "dzial", "pracownik", "data")
 
 # dzial: (miesieczne przychody, miesieczne koszty)
-DZIALY = {"Produkcja": (90000, 73000), "Sprzedaż": (60000, 45000), "Serwis": (15000, 22000),
-          "Logistyka": (22000, 23000), "Marketing": (33000, 24000)}
+DZIALY = {"Produkcja": (90000, 78000), "Sprzedaż": (60000, 45000), "Serwis": (25000, 32050),
+          "Logistyka": (20100, 20500), "Marketing": (31260, 26300)}
 LICZBA_PRACOWNIKOW = {"Produkcja": 10, "Sprzedaż": 6, "Serwis": 4, "Logistyka": 3, "Marketing": 2}
 IMIONA = ["Anna", "Piotr", "Marek", "Ewa", "Jan", "Kasia", "Tomek", "Ola", "Adam", "Marta", "Paweł", "Iga",
           "Michał", "Zofia", "Krzysztof", "Agnieszka", "Łukasz", "Natalia", "Rafał", "Dorota", "Bartek",
@@ -41,9 +41,18 @@ def generuj_dane(seed=42):
 def generuj_pracownikow():
     rng = np.random.default_rng(7)
     dzialy = [d for d, n in LICZBA_PRACOWNIKOW.items() for _ in range(n)]
-    return pd.DataFrame({"pracownik": IMIONA, "dzial": dzialy,
-                         "koszt_mies": rng.integers(6500, 9500, len(IMIONA)),
-                         "wydajnosc_proc": rng.integers(60, 120, len(IMIONA))})
+    return licz_wydajnosc(pd.DataFrame({"pracownik": IMIONA, "dzial": dzialy,
+                                        "koszt_mies": rng.integers(6500, 9500, len(IMIONA)),
+                                        "wynik_pracy": rng.integers(130, 190, len(IMIONA))}))
+
+
+def licz_wydajnosc(prac):
+    """Wydajnosc wzgledem najlepszego: kto ma najwiekszy wynik pracy (np. przepracowane godziny, wykonane sztuki)
+    ma 100%, reszta proporcjonalnie (A: 100, B: 90 -> B ma 90%)."""
+    prac = prac.copy()
+    maks = prac["wynik_pracy"].max() if len(prac) else 0
+    prac["wydajnosc_proc"] = (prac["wynik_pracy"] / maks * 100).round(1) if maks and maks > 0 else 0.0
+    return prac
 
 
 def dane_dzisiejsze():
@@ -67,6 +76,8 @@ def _czytaj(plik, kolumny, nazwa):
         tekst = surowe.decode("cp1250")
     t = pd.read_csv(io.StringIO(tekst), sep=None, engine="python")
     t.columns = [str(c).strip().lower() for c in t.columns]
+    if kolumny is KOL_PRAC and "wynik_pracy" not in t.columns and "wydajnosc_proc" in t.columns:
+        t = t.rename(columns={"wydajnosc_proc": "wynik_pracy"})  # stary format pliku: przeliczymy wzgledem najlepszego
     brak = [c for c in kolumny if c not in t.columns]
     if brak:
         raise ValueError(f"Plik {nazwa}: brakuje kolumn {', '.join(brak)}. Wymagane: {', '.join(kolumny)}.")
@@ -112,4 +123,4 @@ def wczytaj(f1=None, f2=None, f3=None):
             bledy.append(str(e))
     if dzis is None and not wlasne:
         dzis = dane_dzisiejsze()
-    return df, prac, dzis, bledy
+    return df, licz_wydajnosc(prac), dzis, bledy
